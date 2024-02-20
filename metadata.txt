@@ -1,0 +1,20 @@
+[general]
+name=Cell Planning Tools
+qgisMinimumVersion=3.0
+description=PluginDescription
+version=0.1
+author=ENrique Velazquez
+email=enriquevelazquez@gmail.com
+icon=resources/icons/cellplanningtools.png
+
+about=A set of Radio Access Networks cell planning and optimization tools
+
+tracker=https://github.com/quikevs/cell_planning_tools/issues
+repository=https://github.com/quikevs/cell_planning_tools
+homepage=https://rockmedia.substack.com/
+
+category=Plugins
+hasProcessingProvider=yes
+
+tags=python,RAN,Telecommunications
+experimental=False
