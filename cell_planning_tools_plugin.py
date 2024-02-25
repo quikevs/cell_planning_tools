@@ -33,8 +33,10 @@ __author__ = 'Enrique Velazquez'
 __date__ = '2023-04-21'
 __copyright__ = '(C) 2023 by Rockmedia'
 
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QAction, QToolBar
+from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtWidgets import QAction, QToolBar
+
+from qgis.core import QgsMessageLog, Qgis
 
 from qgis.gui import QgisInterface
 
@@ -42,55 +44,48 @@ from typing import List
 
 import os
 
-from .utils import log
+class CellPlanningTools():
 
-class cell_planning_tools(object):
-
-    PLUGIN_NAME: str = '&Cell Planning Tools'
+    PLUGIN_NAME: str = 'Cell Planning Tools'
+    def __init__(self, interface: QgisInterface) -> None:
+        self.interface: QgisInterface = interface
+        self.plugin_directory: str = os.path.dirname(__file__)
+        self.action: QAction = None
+        self.toolbar: QToolBar = None
+        self.called: bool = False
+        return
     
-    def __init__(self, Interface: QgisInterface) -> None:
-        
-        self.Interface: QgisInterface = Interface 
-        self.PluginDirectory: str = os.path.dirname(__file__)
-        self.ResourcesDirectory: str = os.path.join(
-            self.PluginDirectory,"resources")
-
-        self.Actions: List[QAction] = []
-        
-        self.Toolbar: QToolBar = self.Interface.addToolBar(self.PLUGIN_NAME)
-        self.Toolbar.setObjectName(self.PLUGIN_NAME)
-
-        self.FirstStart: bool = None
-        return
-
     def initGui(self) -> None:
-        IconPath: str = os.path.join(self.ResourcesDirectory, 
-                                "icons", "sectors.png")
+        self.toolbar: QToolBar = self.interface.addToolBar(self.PLUGIN_NAME)
+        self.toolbar.setToolTip(self.PLUGIN_NAME)
 
-        Action: QAction = QAction(QIcon(IconPath), 
-                         self.PLUGIN_NAME, self.Interface.mainWindow())
-        Action.triggered.connect(self.run)
-        Action.setEnabled(True)
+        Icon = QIcon(os.path.join(self.plugin_directory,
+                     "resources","icons","cellplanningtools.png"))
+        self.action = QAction(Icon, "Test Action")
+        self.action.triggered.connect(self.run)
 
-        self.Toolbar.addAction(Action)
-        self.Interface.addPluginToMenu(self.PLUGIN_NAME, Action)
-        self.Actions.append(Action)
-        
-        self.FirstStart: bool = True
+        self.toolbar.addAction(self.action)
+        self.interface.addPluginToMenu(self.PLUGIN_NAME, self.action)
         return
-
+    
     def unload(self) -> None:
-        """Removes the plugin menu item and icon from QGIS GUI."""
-        log.Critical("Dying")
-        for Action in self.Actions:
-            self.Interface.removePluginMenu(self.PLUGIN_NAME,Action)
-            self.Interface.removeToolBarIcon(Action)
-        log.Message("Died peacefully...")
+        self.interface.removePluginMenu(self.PLUGIN_NAME, self.action)
+        self.interface.removeToolBarIcon(self.action)
+        del self.action
+        del self.toolbar
         return
 
     def run(self) -> None:
-        if self.FirstStart == True:
-            self.FirstStart = False
-            log.Success("First time calling run()")
-        log.Information("call to run()")
+        if not self.called:
+            QgsMessageLog.logMessage(
+                "First time calling run()", 
+                self.PLUGIN_NAME, 
+                level=Qgis.Info)
+            self.called = True
+        
+        QgsMessageLog.logMessage(
+            "Calling run()",
+            self.PLUGIN_NAME, 
+            level=Qgis.Info) 
+        
         return

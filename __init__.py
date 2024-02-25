@@ -33,7 +33,8 @@ __author__ = 'Enrique Velazquez'
 __date__ = '2023-04-21'
 __copyright__ = '(C) 2023 by Rockmedia'
 
+from qgis.gui import QgisInterface
 
-def classFactory(iface):
-    from .cell_planning_tools_plugin import cell_planning_tools
-    return cell_planning_tools(iface)
+def classFactory(interface: QgisInterface):
+    from .cell_planning_tools_plugin import CellPlanningTools
+    return CellPlanningTools(interface)
