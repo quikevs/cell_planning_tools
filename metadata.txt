@@ -3,7 +3,7 @@ name=Cell Planning Tools
 qgisMinimumVersion=3.0
 description=PluginDescription
 version=0.1
-author=ENrique Velazquez
+author=Enrique Velazquez
 email=enriquevelazquez@gmail.com
 icon=resources/icons/cellplanningtools.png
 
