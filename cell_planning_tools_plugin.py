@@ -60,8 +60,8 @@ class CellPlanningTools():
         self.toolbar.setToolTip(self.PLUGIN_NAME)
 
         Icon = QIcon(os.path.join(self.plugin_directory,
-                     "resources","icons","cellplanningtools.png"))
-        self.action = QAction(Icon, "Test Action")
+                     "resources","icons","draw_sectors.png"))
+        self.action = QAction(Icon, "Draw Sectors")
         self.action.triggered.connect(self.run)
 
         self.toolbar.addAction(self.action)
@@ -78,13 +78,13 @@ class CellPlanningTools():
     def run(self) -> None:
         if not self.called:
             QgsMessageLog.logMessage(
-                "First time calling run()", 
+                "First time calling drawSectors()", 
                 self.PLUGIN_NAME, 
                 level=Qgis.Info)
             self.called = True
         
         QgsMessageLog.logMessage(
-            "Calling run()",
+            "Calling drawSectors()",
             self.PLUGIN_NAME, 
             level=Qgis.Info) 
         
