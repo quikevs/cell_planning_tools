@@ -110,3 +110,4 @@ class CellPlanningTools():
     
     def showSettings(self) -> None:
         self.settingsDialog.show()
+        return

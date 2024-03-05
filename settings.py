@@ -11,25 +11,23 @@ from qgis.PyQt.QtWidgets import (
     QAbstractItemView, 
     QDialog, 
     QDialogButtonBox,
-    QListView,
     QPushButton,
     )
 
 from typing import List
 
-from qgis.core import QgsProject, QgsMapLayer, Qgis, QgsRasterLayer
+from qgis.core import QgsProject, QgsMapLayer, Qgis
 
 from qgis.gui import QgisInterface
 
-from .utils import logMessage
 
 class Settings():
     plugin_directory: str = os.path.dirname(__file__)
     plugin_name: str = "Cell Planning Tools"
     def __init__(self) -> None:
-        pass
+        self.read()
 
-    def read(self):
+    def read(self) -> None:
         qset = QSettings("Rockmedia", "CellPlanningTools")
         sectorLayer = \
             qset.value("/CellPlanningTools/sectorLayer", "Cell-sector")
@@ -51,10 +49,6 @@ class Settings():
         self.upperSidelobeLimit: int = \
             qset.value("/CellPlanningTools/upperSidelobeLimit", 300_000)
         self.units: int = qset.value("/CellPlanningTools/units", 0)
-
-
-
-
         return
 
     def layerListfromNames(self, nameList: str) -> List[QVariant]:
@@ -120,6 +114,7 @@ class MultipleSelection(QDialog, FORM_CLASS):
         self.simModel.itemChanged.connect(self.selectionChanged)
         self.simModel.rowsRemoved.connect(self.selectionChanged)
         self.selectedItems: List[QVariant] = []
+        return
     
     def selectAll(self) -> None:
         items: List[QStandardItem] = self.currentItems()
@@ -183,13 +178,13 @@ class MultipleSelection(QDialog, FORM_CLASS):
     def addOption(self, 
                   value: QVariant, 
                   selected: bool, updateExistingTitle: bool)-> None:
+        
         for i in range(self.simModel.rowCount()):
             if self.simModel.item(i).data(Qt.ItemDataRole.UserRole) == value:
                 if updateExistingTitle:
                     self.simModel.item(i).setText(
                         f'{value.value()["name"]}')
                 return
-        
         item = QStandardItem(
             f'{value.value()["name"]}')
         item.setData(value, Qt.ItemDataRole.UserRole)
@@ -206,6 +201,7 @@ FORM_CLASS, _ = uic.loadUiType(os.path.join(
 class SettingsDialog(QDialog, FORM_CLASS):
     def __init__(self, interface, 
                  parent: QWidget) -> None:
+        
         super().__init__(parent)
         self.setupUi(self)
         self.interface: QgisInterface = interface
@@ -255,9 +251,6 @@ class SettingsDialog(QDialog, FORM_CLASS):
         
         units = self.cbUnits.currentIndex()
         qset.setValue("/CellPlanningTools/units", units)
-
-        
-
         settings.read()
         self.close()
         return
@@ -266,7 +259,6 @@ class SettingsDialog(QDialog, FORM_CLASS):
         settings.read()
         self.cbSectorLayer.setLayer(settings.sectorLayer)
 
-        
         return
     
     def getAvailableLayers(self) -> List[QVariant]:
