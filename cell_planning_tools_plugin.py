@@ -50,43 +50,63 @@ from typing import List
 import os
 
 from .cell_planning_tools_processing import CallPlanningToolsProcessing
-from .settings import settings
+from .settings import settings, SettingsDialog
 
 class CellPlanningTools():
 
     PLUGIN_NAME: str = 'Cell Planning Tools'
     def __init__(self, interface: QgisInterface) -> None:
         self.interface: QgisInterface = interface
-        self.action: QAction = None
+        self.actions: List[QAction] = []
         self.toolbar: QToolBar = None
         self.called: bool = False
+
+        self.settingsDialog: SettingsDialog = \
+            SettingsDialog(interface, interface.mainWindow())
 
         self.provider: QgsProcessingProvider = CallPlanningToolsProcessing()
         return
     
+    def registerAction(
+            self, icon: QIcon, text: str, callback: callable,
+            addToToolbar: bool = True, addToMenu: bool = True) -> QAction:
+        
+        action: QAction = QAction(icon, text)
+        action.triggered.connect(callback)
+        if addToToolbar:
+            self.toolbar.addAction(action)
+        if addToMenu:
+            self.interface.addPluginToMenu(settings.plugin_name, action)
+        self.actions.append(action)    
+        return action
+
     def initGui(self) -> None:
         self.toolbar: QToolBar = self.interface.addToolBar(self.PLUGIN_NAME)
         self.toolbar.setToolTip(self.PLUGIN_NAME)
-
-        Icon = QIcon(os.path.join(settings.plugin_directory,
-                     "resources","icons","draw_sectors.png"))
-        self.action = QAction(Icon, "Draw Sectors")
-        self.action.triggered.connect(self.drawSectors)
-
-        self.toolbar.addAction(self.action)
-        self.interface.addPluginToMenu(self.PLUGIN_NAME, self.action)
+        
+        self.registerAction(
+            QIcon(os.path.join(settings.plugin_directory,
+                               "resources","icons","draw_sectors.png")),
+            "Draw Sectos", self.drawSectors)
+        self.registerAction(
+            QIcon(':/images/themes/default/mActionOptions.svg'),
+            "Settings", self.showSettings)
 
         QgsApplication.processingRegistry().addProvider(self.provider)
         return
     
     def unload(self) -> None:
         QgsApplication.processingRegistry().removeProvider(self.provider)
-        self.interface.removePluginMenu(self.PLUGIN_NAME, self.action)
-        self.interface.removeToolBarIcon(self.action)
-        del self.action
+
+        for action in self.actions:
+            self.interface.removePluginMenu(self.PLUGIN_NAME, action)
+            self.interface.removeToolBarIcon(action)
         del self.toolbar
         return
 
     def drawSectors(self) -> None:
         processing.execAlgorithmDialog('cellplanningtools:drawsector', {})
         return
+    
+    def showSettings(self) -> None:
+        self.settingsDialog.show()
