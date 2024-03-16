@@ -47,6 +47,7 @@ from qgis.core import (
     QgsProcessingFeatureBasedAlgorithm,
     QgsProcessingFeedback,
     QgsProcessingFeatureSource,
+    QgsProcessingParameterField,
     QgsProcessingParameters,
     QgsProcessingParameterEnum,
     QgsProcessingParameterMultipleLayers,
@@ -67,6 +68,7 @@ import os
 from .settings import settings
 from .utils import EPSG4326, GeometryManager, Geometry
 from .rf import CellSectorBuilder, CellSector
+from .utils import logMessage
 
 from typing import List, Dict, Any
 
@@ -131,31 +133,24 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
     def initParameters(self, configuration: Dict[str, Any] = ...) -> None:
         
         # Cell Sector Name
-        param = QgsProcessingParameterString(
-            self.pNAME,
-            "Cell Sector Name (Unique)",
-            defaultValue=None,
-            multiLine=False,
-            optional=False
-        )
-        param.setIsDynamic(True)
-        param.setDynamicPropertyDefinition(
-            QgsPropertyDefinition(
+        self.addParameter(
+            QgsProcessingParameterField(
                 self.pNAME,
-                'Cell-sector Name (Unique)',
-                QgsPropertyDefinition.String
+                "Cell Sector name (Unique)",
+                defaultValue=settings.mapName,
+                allowMultiple=False,
+                parentLayerParameterName='INPUT',
+                optional=False,
             )
         )
-        param.setDynamicLayerParameterName('INPUT')
-        self.addParameter(param)
-
+        
         # Elevation Layer List
         self.addParameter(
             QgsProcessingParameterMultipleLayers(
                 self.pDEM_LIST,
                 "Digital Elevation Model (DEM) raster list",
                 layerType=QgsProcessing.TypeRaster,
-                defaultValue=None,
+                defaultValue=settings.rasterList(settings.demList),
                 optional=False,
             )
         )
@@ -166,7 +161,7 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
                 self.pDSM_LIST,
                 "Digital Surface Model (DSM) raster list (optional)",
                 layerType=QgsProcessing.TypeRaster,
-                defaultValue=None,
+                defaultValue=settings.rasterList(settings.dsmList),
                 optional=True,
             )
         )
@@ -175,37 +170,33 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
             QgsProcessingParameterNumber(
                 self.pSENSIBILITY,
                 "DEM/DSM Sensibility (in map units)",
-                defaultValue=0.0,
+                type=QgsProcessingParameterNumber.Double,
+                defaultValue=settings.sensibility,
                 optional=False,
                 minValue=0.1,
             )
         )
 
         # Note: Azimuth
-        param = QgsProcessingParameterNumber(
-            self.pAZIMUTH,
-            'Azimuth',
-            QgsProcessingParameterNumber.Double,
-            defaultValue=0,
-            optional=False
-        )
-        param.setIsDynamic(True)
-        param.setDynamicPropertyDefinition(
-            QgsPropertyDefinition(
-                self.pAZIMUTH,
-                'Azimuth',
-                QgsPropertyDefinition.Double
-            )
-        )
-        param.setDynamicLayerParameterName('INPUT')
-        self.addParameter(param)
 
+        self.addParameter(
+            QgsProcessingParameterField(
+                self.pAZIMUTH,
+                "Azimuth",
+                defaultValue=settings.mapAzimuth,
+                parentLayerParameterName='INPUT',
+                type=QgsProcessingParameterField.Numeric,
+                allowMultiple=False,
+                optional=False
+                )
+            )
+        
         # Note: Azimuth Shift
         param = QgsProcessingParameterNumber(
             self.pSHIFT,
             'Azimuth Shift',
             QgsProcessingParameterNumber.Double,
-            defaultValue=0,
+            defaultValue=settings.mapShift,
             optional=False
         )
         param.setIsDynamic(True)
@@ -219,107 +210,73 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
         param.setDynamicLayerParameterName('INPUT')
         self.addParameter(param)
 
-        # Note: Antenna Height
-        param = QgsProcessingParameterNumber(
-            self.pANTENNA_HEIGHT,
-            'Antenna Height',
-            QgsProcessingParameterNumber.Double,
-            defaultValue=1,
-            optional=False,
-        )
-        param.setIsDynamic(True)
-        param.setDynamicPropertyDefinition(
-            QgsPropertyDefinition(
+        self.addParameter(
+            QgsProcessingParameterField(
                 self.pANTENNA_HEIGHT,
-                'Antenna Height',
-                QgsPropertyDefinition.Double
+                "Antenna Height",
+                defaultValue=settings.mapAntennaHeight,
+                parentLayerParameterName='INPUT',
+                type=QgsProcessingParameterField.Numeric,
+                allowMultiple=False,
+                optional=False
             )
         )
-        param.setDynamicLayerParameterName('INPUT')
-        self.addParameter(param)
-
         
-        # Note: Mechanical Downtilt 
-        param = QgsProcessingParameterNumber(
-            self.pM_DOWNTILT,
-            'Mechanical Downtilt',
-            QgsProcessingParameterNumber.Double,
-            defaultValue=0,
-            optional=False
-        )
-        param.setIsDynamic(True)
-        param.setDynamicPropertyDefinition(
-            QgsPropertyDefinition(
+        self.addParameter(
+            QgsProcessingParameterField(
                 self.pM_DOWNTILT,
                 'Mechanical Downtilt',
-                QgsPropertyDefinition.Double
+                defaultValue=settings.mapMTilt,
+                parentLayerParameterName='INPUT',
+                type=QgsProcessingParameterField.Numeric,
+                allowMultiple=False,
+                optional=False
             )
         )
-        param.setDynamicLayerParameterName('INPUT')
-        self.addParameter(param)
-
-        # Note: Electrical Downtilt 
-        param = QgsProcessingParameterNumber(
-            self.pE_DOWNTILT,
-            'Electrical Downtilt',
-            QgsProcessingParameterNumber.Double,
-            defaultValue=0,
-            optional=False
-        )
-        param.setIsDynamic(True)
-        param.setDynamicPropertyDefinition(
-            QgsPropertyDefinition(
+        
+        self.addParameter(
+            QgsProcessingParameterField(
                 self.pE_DOWNTILT,
                 'Electrical Downtilt',
-                QgsPropertyDefinition.Double
+                defaultValue=settings.mapETilt,
+                parentLayerParameterName='INPUT',
+                type=QgsProcessingParameterField.Numeric,
+                allowMultiple=False,
+                optional=False
             )
         )
-        param.setDynamicLayerParameterName('INPUT')
-        self.addParameter(param)
 
-        # Note: H_WIDTH
-        param = QgsProcessingParameterNumber(
-            self.pH_WIDTH,
-            'Horizontal Beam Width',
-            QgsProcessingParameterNumber.Double,
-            defaultValue=65.0,
-            optional=False
-            )
-        param.setIsDynamic(True)
-        param.setDynamicPropertyDefinition(
-            QgsPropertyDefinition(
+        self.addParameter(
+            QgsProcessingParameterField(
                 self.pH_WIDTH,
                 'Horizontal Beam Width',
-                QgsPropertyDefinition.Double
-                ))
-        param.setDynamicLayerParameterName('INPUT')
-        self.addParameter(param)
-
-        # Node: V_WIDTH
-        param = QgsProcessingParameterNumber(
-            self.pV_WIDTH,
-            'Vertical Beam Width',
-            QgsProcessingParameterNumber.Double,
-            defaultValue=10.0,
-            optional=False
+                defaultValue=settings.mapHWidth,
+                parentLayerParameterName='INPUT',
+                type=QgsProcessingParameterField.Numeric,
+                allowMultiple=False,
+                optional=False
             )
-        param.setIsDynamic(True)
-        param.setDynamicPropertyDefinition(
-            QgsPropertyDefinition(
+        )
+
+        self.addParameter(
+            QgsProcessingParameterField(
                 self.pV_WIDTH,
                 'Vertical Beam Width',
-                QgsPropertyDefinition.Double
-                ))
-        param.setDynamicLayerParameterName('INPUT')
-        self.addParameter(param)
-
+                defaultValue=settings.mapHWidth,
+                parentLayerParameterName='INPUT',
+                type=QgsProcessingParameterField.Numeric,
+                allowMultiple=False,
+                optional=False
+            )
+        )
+        
         # Upper sidelobe distance limit
         self.addParameter(
             QgsProcessingParameterNumber(
                 self.pUS_LIMIT,
                 "Upper sidelobe distance limit",
                 QgsProcessingParameterNumber.Double,
-                defaultValue=30000,
+                defaultValue=settings.upperSidelobeLimit,
                 optional = False
             )
         )
@@ -330,7 +287,7 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
                 self.pUNITS,
                 'Map units',
                 options= ["Meters", "Feet"],
-                defaultValue=0,
+                defaultValue=settings.units,
                 optional=False)
         )
         return
@@ -372,27 +329,20 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
                 context
                 )
         # Dynamic Parameters
-
-        self.name = self.parameterAsString(
-            parameters, self.pNAME, context
-        )
-        self.nameIsDynamic = QgsProcessingParameters.isDynamic(
-            parameters, self.pNAME
-        )
-        if self.nameIsDynamic:
-            self.NameProperty: QgsProperty = parameters[self.pNAME]
-
-        # Azimuth
-
-        self.azimuth = self.parameterAsDouble(
-            parameters, self.pAZIMUTH, context
-            )
-        self.azimuthIsDynamic = QgsProcessingParameters.isDynamic(
-            parameters, self.pAZIMUTH
-            )
-        if self.azimuthIsDynamic:
-            self.azimuthProperty: QgsProperty = parameters[self.pAZIMUTH]
-
+        self.name = self.parameterAsStrings(parameters, self.pNAME, context)[0]
+        self.azimuth = self.parameterAsStrings(
+            parameters, self.pAZIMUTH, context)[0]
+        self.antennaHeight = self.parameterAsStrings(
+            parameters, self.pANTENNA_HEIGHT, context)[0]
+        self.mDowntilt: float = self.parameterAsStrings(
+                parameters, self.pM_DOWNTILT, context)[0]
+        self.eDowntilt = self.parameterAsStrings(
+            parameters, self.pE_DOWNTILT, context)[0]
+        self.hWidth = self.parameterAsStrings(
+            parameters, self.pH_WIDTH, context)[0]
+        self.vWidth = self.parameterAsStrings(
+            parameters, self.pV_WIDTH, context)[0]
+        
         # Azimuth Shift
         self.shift = self.parameterAsDouble(
             parameters, self.pSHIFT, context
@@ -403,18 +353,6 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
         if self.shiftIsDynamic:
             self.shiftProperty: QgsProperty = parameters[self.pSHIFT]
 
-        
-        # Antenna Heigth
-        self.antennaHeight = self.parameterAsDouble(
-            parameters, self.pANTENNA_HEIGHT, context
-            )
-        self.antennaHeightIsDynamic = QgsProcessingParameters.isDynamic(
-            parameters, self.pANTENNA_HEIGHT
-            )
-        if self.antennaHeightIsDynamic:
-            self.antennaHeightProperty: QgsProperty = \
-                parameters[self.pANTENNA_HEIGHT]
-        
         # Units
         self.units = self.parameterAsInt(
             parameters, self.pUNITS, context
@@ -429,59 +367,16 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
             parameters, self.pSENSIBILITY,context)
         
         sensibility = sensibility * self.scaleFactor
-        
-        # Mechanical Downtilt
-
-        self.mDowntilt: float = self.parameterAsDouble(
-                parameters, self.pM_DOWNTILT, context
-                )
-        self.mDowntiltIsDynamic: bool = QgsProcessingParameters.isDynamic(
-            parameters, self.pM_DOWNTILT
-            )
-        if self.mDowntiltIsDynamic:
-            self.mDowntiltProperty: QgsProperty = parameters[self.pM_DOWNTILT]
-
-        # Electrical Downtilt
-        self.eDowntilt = self.parameterAsDouble(
-            parameters, self.pE_DOWNTILT, context
-            )
-        self.eDowntiltIsDynamic = QgsProcessingParameters.isDynamic( 
-            parameters, self.pE_DOWNTILT
-            )
-        if self.eDowntiltIsDynamic:
-            self.eDowntiltProperty: QgsProperty = parameters[self.pE_DOWNTILT]
-
-        # H width
-        self.hWidth = self.parameterAsDouble(
-            parameters, self.pH_WIDTH, context
-            )
-        self.hWidthIsDynamic = QgsProcessingParameters.isDynamic( 
-            parameters, self.pH_WIDTH
-            )
-        if self.hWidthIsDynamic:
-            self.hWidthProperty: QgsProperty = parameters[self.pH_WIDTH]
-
-
-        # VWith
-        self.vWidth = self.parameterAsDouble(
-            parameters, self.pV_WIDTH, context
-            )
-        self.vWidthIsDynamic = QgsProcessingParameters.isDynamic( 
-            parameters, self.pV_WIDTH
-            )
-        if self.vWidthIsDynamic:
-            self.vWidthProperty: QgsProperty = parameters[self.pV_WIDTH]
-
         # Upper sidelobe distance limit
             
         upperSidelobeLimit = self.parameterAsDouble(
             parameters, self.pUS_LIMIT, context
             )
+        
         self.manager: GeometryManager = GeometryManager(EPSG4326)
         self.manager.setElevationRasterList(DEMList)
         self.manager.setSurfaceRasterList(DSMList)
         
-
         self.manager.setSensibility(sensibility)
         self.manager.setUpperSidelobeLimit(upperSidelobeLimit)
         
@@ -505,32 +400,13 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
         
         #Extract Dynamic Parameters
         
-        if self.nameIsDynamic:
-            name, success = self.NameProperty.valueAsString(
-                context.expressionContext(), self.name
-            )
-            if not success:
-                feedback.pushDebugInfo(
-                    f"NameProperty read error on Feature: {feature.id}"
+        name = str(feature[self.name])
+        azimuth = float(feature[self.azimuth])
+        if azimuth == None:
+            feedback.pushDebugInfo(
+                f"Azimuth.illegal error. Name:{name}"
                 )
-                return []
-        else:
-            name = self.name
-
-        #Azimuth
-            
-        if self.azimuthIsDynamic:
-            azimuth, success = self.azimuthProperty.valueAsDouble(
-                context.expressionContext(), self.azimuth
-                )
-            if not success:
-                feedback.pushDebugInfo(
-                    f"AzimuthProperty read error. Name:{name}"
-                    )
-                return []
-        else:
-            azimuth = self.azimuth
-
+            return []
         azimuth %= 360
         
         #Shift
@@ -546,20 +422,8 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
 
         shift %= 360
 
-        #Antenna Height
-        if self.antennaHeightIsDynamic:
-            antennaHeight, success = self.antennaHeightProperty.valueAsDouble(
-                context.expressionContext(), self.antennaHeight
-                )
-            if not success:
-                feedback.pushDebugInfo(
-                    f"AntennaHeightProperty read error. Name:{name}"
-                    )
-                return []
-        else:
-            antennaHeight = self.antennaHeight
-
-        if antennaHeight <= 0:
+        antennaHeight = float(feature[self.antennaHeight])
+        if antennaHeight <= 0 or antennaHeight == None:
             feedback.pushDebugInfo(
                 f"AntennaHeight.illegal error. Name:{name}"
                 )
@@ -568,74 +432,47 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
         antennaHeight = antennaHeight * self.scaleFactor
 
         #M Downtilt
-        if self.mDowntiltIsDynamic:
-            mDowntilt, success = self.mDowntiltProperty.valueAsDouble(
-                context.expressionContext(), self.mDowntilt
-                )
-            if not success:
+        mDowntilt = float(feature[self.mDowntilt])
+        if mDowntilt == None:
                 feedback.pushDebugInfo(
                     f"MDowntiltProperty read error. Name:{name}"
                     )
                 return []
-        else:
-            mDowntilt = self.mDowntilt
 
-        mDowntilt %= 360
-
-        #E Downtilt
-        if self.eDowntiltIsDynamic:
-            eDowntilt, success = self.eDowntiltProperty.valueAsDouble(
-                context.expressionContext(), self.eDowntilt
-                )
-            if not success:
+        logMessage(f'{mDowntilt}')
+        eDowntilt = float(feature[self.eDowntilt])
+        if eDowntilt == None:
                 feedback.pushDebugInfo(
                     f"EDowntiltProperty read error. Name:{name}"
                     )
                 return []
-        else:
-            eDowntilt = self.eDowntilt
 
-        eDowntilt %= 360
-
+        logMessage(f'{eDowntilt}')
         #H Width
-        if self.hWidthIsDynamic:
-            hWidth, success = self.hWidthProperty.valueAsDouble(
-                context.expressionContext(), self.hWidth
+        hWidth = float(feature[self.hWidth])
+        if hWidth == None:
+            feedback.pushDebugInfo(
+                f"HWidthProperty read error. Name:{name}"
                 )
-            if not success:
-                feedback.pushDebugInfo(
-                    f"HWidthProperty read error. Name:{name}"
-                    )
-                return []
-        else:
-            hWidth = self.hWidth
-
+            return []
         if hWidth <=0:
             feedback.pushDebugInfo(
                 f"HWidth.illegal error. Name:{name}"
                 )
             return []
-
-        # V Width
-        if self.vWidthIsDynamic:
-            vWidth, success = self.vWidthProperty.valueAsDouble(
-                context.expressionContext(), self.vWidth
-                )
-            if not success:
-                feedback.pushDebugInfo(
-                    f"VWidthProperty read error. Name:{name}"
-                    )
-                return []
-        else:
-            vWidth = self.vWidth
         
-        if vWidth <= 0:
+        vWidth = float(feature[self.vWidth])
+        if vWidth == None:
             feedback.pushDebugInfo(
-                f"HWidth.illegal error. Name:{name}"
+                f"VWidthProperty read error. Name:{name}"
                 )
             return []
-        
-            
+        if vWidth <=0:
+            feedback.pushDebugInfo(
+                f"VWidth.illegal error. Name:{name}"
+                )
+            return []
+
         builder: CellSectorBuilder = (CellSectorBuilder(name, origin)
                    .setAntennaHeigth(antennaHeight)
                    .setAzimuth(azimuth, shift)
@@ -648,17 +485,19 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
         mainLobe: CellSector = builder.mainlobe()
         if not mainLobe:
             feedback.pushDebugInfo(f"Mainlobe not Ready!. Name:{name}")
-            return []   
+            return []
+        
+        logMessage(f'processing-> name {name}')
         mainLobeGeometry: Geometry = \
-            self.manager.computeGeometry(mainLobe)
+            self.manager.computeGeometry(mainLobe.copy())
         
         upperSidelobe: CellSector = builder.upperSidelobe()
         if not upperSidelobe:
-            feedback.pushDebugInfo(f"Uper Sidelobe not Ready!. Name:{name}")
+            feedback.pushDebugInfo(f"Upper Sidelobe not Ready!. Name:{name}")
             return []
         
         upperSidelobeGeometry: Geometry =\
-            self.manager.computeGeometry(upperSidelobe)
+            self.manager.computeGeometry(upperSidelobe.copy())
         
         if not mainLobeGeometry or not upperSidelobeGeometry:
             feedback.pushDebugInfo(f"Null Geometry. Name:{name}")

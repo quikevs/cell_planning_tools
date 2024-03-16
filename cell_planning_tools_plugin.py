@@ -33,6 +33,7 @@ __author__ = 'Enrique Velazquez'
 __date__ = '2023-04-21'
 __copyright__ = '(C) 2023 by Rockmedia'
 
+from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QToolBar
 
@@ -51,6 +52,8 @@ import os
 
 from .cell_planning_tools_processing import CallPlanningToolsProcessing
 from .settings import settings, SettingsDialog
+from .alterSector import AlterSector
+
 
 class CellPlanningTools():
 
@@ -63,6 +66,9 @@ class CellPlanningTools():
 
         self.settingsDialog: SettingsDialog = \
             SettingsDialog(interface, interface.mainWindow())
+        
+        self.alterSectorDialog: AlterSector = \
+            AlterSector(interface, self, interface.mainWindow())
 
         self.provider: QgsProcessingProvider = CallPlanningToolsProcessing()
         return
@@ -88,6 +94,12 @@ class CellPlanningTools():
             QIcon(os.path.join(settings.plugin_directory,
                                "resources","icons","draw_sectors.png")),
             "Draw Sectos", self.drawSectors)
+        
+        self.registerAction(
+            QIcon(os.path.join(settings.plugin_directory,
+                               "resources","icons","alter_sector.png")),
+            "Alter Sector", self.alterSector)
+        
         self.registerAction(
             QIcon(':/images/themes/default/mActionOptions.svg'),
             "Settings", self.showSettings)
@@ -102,11 +114,20 @@ class CellPlanningTools():
             self.interface.removePluginMenu(self.PLUGIN_NAME, action)
             self.interface.removeToolBarIcon(action)
         del self.toolbar
+        del self.alterSectorDialog
         return
 
     def drawSectors(self) -> None:
         processing.execAlgorithmDialog('cellplanningtools:drawsector', {})
         return
+    
+    def alterSector(self) -> None:
+        self.interface.addDockWidget(
+            Qt.RightDockWidgetArea, self.alterSectorDialog)
+        self.alterSectorDialog.setFocusPolicy(Qt.StrongFocus)
+
+        self.alterSectorDialog.tbSettings.clicked.connect(self.showSettings)
+        pass
     
     def showSettings(self) -> None:
         self.settingsDialog.show()

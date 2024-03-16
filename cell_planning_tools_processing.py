@@ -41,6 +41,7 @@ from qgis.core import QgsProcessingProvider
 
 from .settings import settings
 from .processing_draw_sectors import DrawSectors
+from .processing_overlap_report import OverlapReport
 
 class CallPlanningToolsProcessing(QgsProcessingProvider):
     def __init__(self) -> None:
@@ -49,6 +50,7 @@ class CallPlanningToolsProcessing(QgsProcessingProvider):
     
     def loadAlgorithms(self) -> None:
         self.addAlgorithm(DrawSectors())
+        self.addAlgorithm(OverlapReport())
         return
 
     def unload(self) -> None:

@@ -1,3 +1,38 @@
+# -*- coding: utf-8 -*-
+"""
+ Cell Planning Tools
+
+ A set of Radio Access Network planning and optimization tools
+
+                    (C) 2023 by quikevs
+                  enriquevelazquez@gmail.com
+
+                        MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+"""
+
+__author__ = 'Enrique Velazquez'
+__date__ = '2023-04-21'
+__copyright__ = '(C) 2023 by Rockmedia'
+
 import os
 
 from PyQt5.QtCore import Qt
@@ -14,11 +49,19 @@ from qgis.PyQt.QtWidgets import (
     QPushButton,
     )
 
-from typing import List
+from typing import List, Dict, Union
 
-from qgis.core import QgsProject, QgsMapLayer, Qgis
+from qgis.core import (
+    QgsProject, 
+    QgsMapLayer, 
+    Qgis, 
+    QgsFieldProxyModel, 
+    QgsFields,
+    QgsVectorLayer,
+    QgsRasterLayer
+    )
 
-from qgis.gui import QgisInterface
+from qgis.gui import QgisInterface, QgsFieldExpressionWidget, QgsFieldComboBox
 
 
 class Settings():
@@ -35,36 +78,81 @@ class Settings():
         self.sectorLayer = None
         for layer in layers:
             if layer.type() == QgsMapLayer.VectorLayer:
-                self.sectorLayer: QgsMapLayer = layer
+                self.sectorLayer: QgsVectorLayer = layer
                 break
         #RasterLists
         demList = qset.value("/CellPlanningTools/demList", "")
-        self.demList = self.layerListfromNames(demList)
+        self.demList = self.getRasterLayerList(demList)
 
         dsmList = qset.value("/CellPlanningTools/dsmList", "")
-        self.dsmList = self.layerListfromNames(dsmList)
+        self.dsmList = self.getRasterLayerList(dsmList)
 
         self.sensibility: float = \
             qset.value("/CellPlanningTools/sensibility", 1.5)
         self.upperSidelobeLimit: int = \
             qset.value("/CellPlanningTools/upperSidelobeLimit", 300_000)
         self.units: int = qset.value("/CellPlanningTools/units", 0)
-        return
 
-    def layerListfromNames(self, nameList: str) -> List[QVariant]:
+        color: str = \
+            qset.value("/CellPlanningTools/rubberBandColor", "#ffe57e")
+        self.rubberBandColor: QColor = QColor(color)
+
+        alpha: int = qset.value("/CellPlanningTools/rubberBandOpacity",
+                                192)
+        self.rubberBandColor.setAlpha(alpha)
+
+        #Layer Field Map
+
+        self.mapName: str = qset.value("/CellPlanningTools/mapName", "")
+        self.mapAntennaHeight: str = \
+            qset.value("/CellPlanningTools/mapAntennaHeight", "")
+        self.mapAzimuth: str = qset.value("/CellPlanningTools/mapAzimuth", "")
+        self.mapShift: str = qset.value("/CellPlanningTools/mapShift","")
+        self.mapMTilt: str = qset.value("/CellPlanningTools/mapMTilt", "")
+        self.mapETilt: str = qset.value("/CellPlanningTools/mapETilt", "")
+        self.mapHWidth: str = qset.value("/CellPlanningTools/mapHWidth", "")
+        self.mapVWidth: str = qset.value("/CellPlanningTools/mapVWidth", "")
+        self.mapMinETilt: str = \
+            qset.value("/CellPlanningTools/mapMinETilt", "")
+        self.mapMaxETilt: str = \
+            qset.value("/CellPlanningTools/mapMaxETilt", "")
+
+        self.mapLock: str = \
+            qset.value("/CellPlanningTools/mapLock", "")
+
+        return
+    
+    def getRasterLayerList(self, nameList: str) -> List[QVariant]:
         result: List[QVariant] = []
+        rasterList: List[QgsRasterLayer] = self.rasterListFromNames(nameList)
+        for raster in rasterList:
+            result.append(QVariant({
+                "name": raster.name(),
+                "layer": raster
+            }))
+        return result
+    
+    def rasterList(self, variantList: List[QVariant]) -> List[QgsRasterLayer]:
+        result: List[QgsRasterLayer] = []
+        for name in variantList:
+            result.append(name.value()['layer'])
+        return result
+    
+    def rasterListFromNames(self, nameList: str) -> List[QgsRasterLayer]:
+        result: List[QgsRasterLayer] = []
         names: List[str] = nameList.split(",")
         for name in names:
+            if name == '':
+                continue
             layers = QgsProject.instance().mapLayersByName(name)
             if len(layers) >= 1:
-                layer = layers[0] #get first
+                layer = layers[0]
                 if layer.type() != Qgis.LayerType.Raster:
                     continue
-                result.append(
-                    QVariant({
-                        "name": layer.name(),
-                        "layer": layer}))
+                result.append(layer)
         return result
+    
+
 
 
 settings = Settings()
@@ -111,10 +199,13 @@ class MultipleSelection(QDialog, FORM_CLASS):
 #        self.buttonBox.accepted.connect(self.acceptClicked)
 
         self.populateList(avalableOptions, selectedOptions)
-        self.simModel.itemChanged.connect(self.selectionChanged)
-        self.simModel.rowsRemoved.connect(self.selectionChanged)
+        #self.simModel.itemChanged.connect(self.selectionChanged)
+        #self.simModel.rowsRemoved.connect(self.selectionChanged)
         self.selectedItems: List[QVariant] = []
         return
+    
+    #def selectionChanged():
+    #    pass
     
     def selectAll(self) -> None:
         items: List[QStandardItem] = self.currentItems()
@@ -177,11 +268,11 @@ class MultipleSelection(QDialog, FORM_CLASS):
     
     def addOption(self, 
                   value: QVariant, 
-                  selected: bool, updateExistingTitle: bool)-> None:
+                  selected: bool, updateExistingTilte: bool)-> None:
         
         for i in range(self.simModel.rowCount()):
             if self.simModel.item(i).data(Qt.ItemDataRole.UserRole) == value:
-                if updateExistingTitle:
+                if updateExistingTilte:
                     self.simModel.item(i).setText(
                         f'{value.value()["name"]}')
                 return
@@ -194,6 +285,139 @@ class MultipleSelection(QDialog, FORM_CLASS):
         item.setDropEnabled(False)
         self.simModel.appendRow(item)
         return
+
+FORM_CLASS, _ = uic.loadUiType(os.path.join(
+    settings.plugin_directory,"resources","ui","map_layer.ui"))
+
+class MapLayerFields(QDialog, FORM_CLASS):
+    def __init__(self, layer: QgsMapLayer, fieldMap: Dict[str, str], 
+                 interface:QgisInterface, parent: QWidget)->None:
+        super().__init__(parent)
+        self.interface: QgisInterface = interface
+        self.layer :QgsVectorLayer = None
+        self.setupUi(self)
+        self.fieldWidgets: List[QgsFieldComboBox] = [
+            self.wAzimuth,
+            self.wHeight,
+            self.wM_Tilt,
+            self.wE_Tilt,
+            
+        ]
+        self.fieldExpressionWidgets: List[QgsFieldExpressionWidget] = [
+            self.wName,
+            self.wLock,
+            self.wShift,
+            self.wH_Width,
+            self.wV_Width,
+            self.wMin_E_Tilt,
+            self.wMax_E_Tilt
+        ]
+        self.fieldExpressionWidgets[0].setFilters(QgsFieldProxyModel.Filter.String)
+        self.fieldExpressionWidgets[1].setFilters(QgsFieldProxyModel.Filter.String)
+        [fieldWidget.setFilters(QgsFieldProxyModel.Filter.Numeric) for fieldWidget in self.fieldWidgets]
+        [fieldWidget.setFilters(QgsFieldProxyModel.Filter.Numeric) for fieldWidget in self.fieldExpressionWidgets[2:]]
+        self.lbError.setText("")
+        self.setLayer(layer)
+        self.setFields(fieldMap)
+        return
+    
+    def setLayer(self, layer: QgsVectorLayer) -> None:
+        self.layer = layer
+        for fieldExpression in self.fieldExpressionWidgets:
+            fieldExpression.setLayer(self.layer if self.layer else None)
+        for fieldExpression in self.fieldWidgets:
+            fieldExpression.setLayer(self.layer if self.layer else None)    
+        return
+    
+    def setFields(self, fieldMap: Dict[str,str]) -> None:
+        #name
+        fields: List[str] = self.layer.fields().names()
+        if fieldMap['name'] in fields:
+            # name previoulsy stored in Memory
+            self.wName.setExpression(fieldMap['name'])      
+        if fieldMap['antenaHeight'] in fields:
+            # name previoulsy stored in Memory
+            self.wHeight.setField(fieldMap['antenaHeight'])
+        if fieldMap['azimuth'] in fields:
+            # name previoulsy stored in Memory
+            self.wAzimuth.setField(fieldMap['azimuth'])
+        if fieldMap['shift'] in fields:
+            # name previoulsy stored in Memory
+            self.wShift.setExpression(fieldMap['shift'])
+        if fieldMap['mDowntilt'] in fields:
+            # name previoulsy stored in Memory
+            self.wM_Tilt.setField(fieldMap['mDowntilt'])
+        if fieldMap['eDowntilt'] in fields:
+            # name previoulsy stored in Memory
+            self.wE_Tilt.setField(fieldMap['eDowntilt'])            
+        if fieldMap['hWidth'] in fields:
+            # name previoulsy stored in Memory
+            self.wH_Width.setExpression(fieldMap['hWidth'])
+        if fieldMap['vWidth'] in fields:
+            # name previoulsy stored in Memory
+            self.wV_Width.setExpression(fieldMap['vWidth'])
+        if fieldMap['minEDowntilt'] in fields:
+            # name previoulsy stored in Memory
+            self.wMin_E_Tilt.setExpression(fieldMap['minEDowntilt'])
+        if fieldMap['maxEDowntilt'] in fields:
+            # name previoulsy stored in Memory
+            self.wMax_E_Tilt.setExpression(fieldMap['maxEDowntilt'])
+        if fieldMap['lock'] in fields:
+            self.wLock.setExpression(fieldMap['lock'])
+       
+        return
+    
+    def accept(self) -> None:
+        self.lbError.setText("")
+        isValid = True
+        for field in self.fieldExpressionWidgets:
+            if field.isValidExpression():
+                continue
+            else:
+                isValid = False
+
+        for field in self.fieldWidgets:
+            if field.currentField() != "":
+                continue
+            else:
+                isValid = False
+        
+        if isValid:
+            #save and commit changes
+            qset = QSettings("Rockmedia", "CellPlanningTools")
+            qset.setValue(
+                "/CellPlanningTools/mapName", self.wName.currentText())
+            qset.setValue(
+                "/CellPlanningTools/mapAntennaHeight", self.wHeight.currentText())
+            qset.setValue(
+                "/CellPlanningTools/mapAzimuth", self.wAzimuth.currentText())
+            qset.setValue(
+                "/CellPlanningTools/mapShift",self.wShift.currentText())
+            qset.setValue(
+                "/CellPlanningTools/mapMTilt", self.wM_Tilt.currentText())
+            qset.setValue(
+                "/CellPlanningTools/mapETilt", self.wE_Tilt.currentText())
+            qset.setValue(
+                "/CellPlanningTools/mapHWidth", self.wH_Width.currentText())
+            qset.setValue(
+                "/CellPlanningTools/mapVWidth", self.wV_Width.currentText())
+            qset.setValue(
+                "/CellPlanningTools/mapMinETilt", self.wMin_E_Tilt.currentText())
+            qset.setValue(
+                "/CellPlanningTools/mapMaxETilt", self.wMax_E_Tilt.currentText())
+            qset.setValue(
+                "/CellPlanningTools/mapLock", self.wLock.currentText())
+            
+            settings.read()
+            self.close()
+            pass
+        
+        else:
+            self.lbError.setText("Error. Please check all Fields before continue")
+
+        return
+
+
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     settings.plugin_directory, 'resources', 'ui', 'Settings.ui'))
@@ -222,6 +446,12 @@ class SettingsDialog(QDialog, FORM_CLASS):
 
         self.demSelectedLayers: List[QVariant] = []
         self.dsmSelectedLayers: List[QVariant] = []
+
+        self.mapLayersDialog: MapLayerFields = None
+        
+        self.tbMapLayerFields.setEnabled(False)
+        self.tbMapLayerFields.clicked.connect(self.mapLayers)
+        self.cbSectorLayer.layerChanged.connect(self.layerChanged)
         return
     
     def accept(self) -> None:
@@ -251,6 +481,13 @@ class SettingsDialog(QDialog, FORM_CLASS):
         
         units = self.cbUnits.currentIndex()
         qset.setValue("/CellPlanningTools/units", units)
+
+        color = self.colorButton.color().name()
+        qset.setValue("/CellPlanningTools/rubberBandColor", color)
+
+        alpha = int(self.opacityWidget.opacity() * 255)
+        qset.setValue("/CellPlanningTools/rubberBandOpacity", alpha)
+
         settings.read()
         self.close()
         return
@@ -258,6 +495,22 @@ class SettingsDialog(QDialog, FORM_CLASS):
     def showEvent(self, a0: QShowEvent) -> None:
         settings.read()
         self.cbSectorLayer.setLayer(settings.sectorLayer)
+        self.sbSensibility.setValue(float(settings.sensibility))
+        self.sbSidelobLimit.setValue(float(settings.upperSidelobeLimit))
+        self.cbUnits.setCurrentIndex(int(settings.units))
+
+        self.leDem.setText(
+            f'{len(settings.demList)} inputs selected'
+        )
+        self.leDsm.setText(
+            f'{len(settings.dsmList)} inputs selected'
+        )
+
+        self.colorButton.setColor(
+            QColor(settings.rubberBandColor))
+
+        self.opacityWidget.setOpacity(
+            settings.rubberBandColor.alpha()/255)
 
         return
     
@@ -276,7 +529,7 @@ class SettingsDialog(QDialog, FORM_CLASS):
     def selectDemLayers(self) -> None:
         
         self.selectDemLayersDialog = MultipleSelection(
-            self.getAvailableLayers(), self.demSelectedLayers, self)
+            self.getAvailableLayers(), settings.demList, self)
         self.selectDemLayersDialog.buttonBox.accepted.connect(self.updateDemLayers)
         self.selectDemLayersDialog.show()
         return
@@ -294,7 +547,7 @@ class SettingsDialog(QDialog, FORM_CLASS):
 
     def selectDsmLayers(self) -> None:
         self.selectDsmLayersDialog = MultipleSelection(
-            self.getAvailableLayers(), self.dsmSelectedLayers, self)
+            self.getAvailableLayers(), settings.dsmList, self)
         self.selectDsmLayersDialog.buttonBox.accepted.connect(
             self.updateDsmLayers)
         self.selectDsmLayersDialog.show()
@@ -311,5 +564,41 @@ class SettingsDialog(QDialog, FORM_CLASS):
         
         return
     
-
-
+    def readFields(self) -> Dict[str, str]:
+        settings.read()
+        fieldMap = {
+            'name': settings.mapName,
+            'antenaHeight': settings.mapAntennaHeight,
+            'azimuth':settings.mapAzimuth,
+            'shift': settings.mapShift,
+            'mDowntilt': settings.mapMTilt,
+            'eDowntilt': settings.mapETilt,
+            'hWidth': settings.mapHWidth,
+            'vWidth': settings.mapVWidth,
+            'minEDowntilt': settings.mapMinETilt,
+            'maxEDowntilt': settings.mapMaxETilt,
+            'lock': settings.mapLock,
+        }
+        return fieldMap
+    
+    def mapLayers(self):
+        layer = self.cbSectorLayer.currentLayer()
+        fields = self.readFields()
+        if self.mapLayersDialog == None:
+        
+            self.mapLayersDialog = MapLayerFields(
+                layer,                                              
+                fields,
+                self.interface, self)
+        else:
+            self.mapLayersDialog.setLayer(layer)
+            self.mapLayersDialog.setFields(fields)
+        self.mapLayersDialog.show()
+        return
+    
+    def layerChanged(self, layer: QgsMapLayer):
+        if self.cbSectorLayer.currentLayer():
+            self.tbMapLayerFields.setEnabled(True)
+        else:
+            self.tbMapLayerFields.setEnabled(False)
+        return

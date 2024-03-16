@@ -1,3 +1,38 @@
+# -*- coding: utf-8 -*-
+"""
+ Cell Planning Tools
+
+ A set of Radio Access Network planning and optimization tools
+
+                    (C) 2023 by quikevs
+                  enriquevelazquez@gmail.com
+
+                        MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+"""
+
+__author__ = 'Enrique Velazquez'
+__date__ = '2023-04-21'
+__copyright__ = '(C) 2023 by Rockmedia'
+
 from typing import Tuple, List, Union, Generator
 from math import atan, radians, isnan
 
@@ -70,9 +105,12 @@ class GeometryManager(metaclass=GeometryManagerMeta):
         self.dsmRasterList: List[QgsRasterLayer] = []
         self.dsmProviderList: List[QgsRasterDataProvider] = []
         self.dsmTransformList: List[QgsCoordinateTransform] = []
-        return
-    
+        return    
+
     def setSurfaceRasterList(self, layerList: List[QgsRasterLayer]) -> None:
+        self.dsmRasterList: List[QgsRasterLayer] = []
+        self.dsmProviderList: List[QgsRasterDataProvider] = []
+        self.dsmTransformList: List[QgsCoordinateTransform] = []
         for layer in layerList:
             self.dsmRasterList.append(layer)
             provider = layer.dataProvider()
@@ -86,8 +124,13 @@ class GeometryManager(metaclass=GeometryManagerMeta):
             else:
                 self.dsmTransformList.append(None)
         return
+    def getDSMLayerNames(self):
+        return (',').join([layer.name() for layer in self.dsmRasterList])
     
     def setElevationRasterList(self, layerList: List[QgsRasterLayer]) -> None:
+        self.demRasterList: List[QgsRasterLayer] = []
+        self.demProviderList: List[QgsRasterDataProvider] = []
+        self.demTransformList: List[QgsCoordinateTransform] = []
         for layer in layerList:
             self.demRasterList.append(layer)
             provider = layer.dataProvider()
@@ -128,7 +171,8 @@ class GeometryManager(metaclass=GeometryManagerMeta):
             return False
         
     def isSurfaceReady(self) -> bool:
-        if (all([provider for provider in self.dsmProviderList]) and
+        if (len(self.dsmRasterList) > 0 and
+            all([provider for provider in self.dsmProviderList]) and
             len(self.dsmProviderList) == \
                 len(self.dsmTransformList) and
             self.sensibility != None):
@@ -191,40 +235,50 @@ class GeometryManager(metaclass=GeometryManagerMeta):
                 }
             )
         
-    def get_walker(self, cellSector: CellSector) -> Union[callable,None]:
-        def walk() -> Generator[float, float]:
+    def get_walker(self, cellSector: CellSector):
+        def walk():
+            logMessage(f'walk:On walk()')
             crossed: bool = False
             step: int = 0
+            logMessage(f'walk->step: {step}:\ncrossed: {crossed}')
             while not crossed:
                 distance: float = step * self.sensibility
                 point: QgsPointXY = None
                 _, point = self.distanceArea.measureLineProjected(
                     cellSector.origin, distance, radians(cellSector.azimuth)
                     )
+                logMessage(f'walk->distance: {distance}, point: {point.x()}, {point.y()}')
                 sample, success = Sample(point)
                 if not success:
+                    logMessage(f'walk->didnt get elevation')
                     #Value not found in any DEM/DSM Provider
                     # StopIteration
                     return
                 else:
                     beam_height: float = \
                         -atan(radians(cellSector.totalDowntilt))*distance + \
-                        cellSector.antennaHeight + floorHeight
+                        cellSector.antennaHeight + cellSector.floorHeight
                     clearance: float = beam_height - sample
+                    logMessage(f'walk->beamh: {beam_height},tilt: {cellSector.totalDowntilt}, clearance: {clearance}')
                     if clearance <= 0 or distance >= self.upperSidelobeLimit:
                         crossed = True
                     step += 1
                     yield sample, clearance
 
         if self.isReady():
+            logMessage("get_walker: is ready")
             floorHeight, success = self.sampleElevation(cellSector.origin)
             if not success:
+                logMessage(f"get_walker: did'nt get florHeight, x: {cellSector.origin.x()}, y: {cellSector.origin.y()}")
                 return None
             else:
+                cellSector.floorHeight = floorHeight
+                logMessage(f'get_walker:floorheight: {floorHeight}')
                 Sample: callable = self.sampleSurface \
                     if self.isSurfaceReady() else self.sampleElevation
                 return walk
         else:
+            logMessage("get_walker: isn't ready")
             raise NotInitialized(
                 'DEM Manager Not Initialized',
                 {

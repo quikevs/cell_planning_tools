@@ -163,3 +163,4 @@ cython_debug/
 *.bat
 *.ipynb
 blog/
+test/project.qgz
