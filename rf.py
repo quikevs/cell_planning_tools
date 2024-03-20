@@ -34,16 +34,17 @@ __date__ = '2023-04-21'
 __copyright__ = '(C) 2023 by Rockmedia'
 
 import dataclasses as dc
+from typing import TypeVar, Dict
 
 from qgis.core import QgsPointXY
 
-from typing import TypeVar, Dict
+from .errors import OutOfRangeError
+
 
 TCellSectorBuilder = TypeVar("TCellSectorBuilder", bound="CellSectorBuilder")
 TCellSector = TypeVar("TCellSector", bound="CellSector")
 
-from .errors import OutOfRangeError
-    
+
 @dc.dataclass
 class CellSector:
     name: str
@@ -55,23 +56,28 @@ class CellSector:
     eDowntilt: float = dc.field(repr=False)
     hWidth: float = dc.field(repr=False)
     vWidth: float = dc.field(repr=False)
+    minEDowntilt: float = dc.field(default=0, repr=False)
+    maxEDowntilt: float = dc.field(default=10, repr=False)
     floorHeight: float = dc.field(default=None, init=False, repr=False)
 
     @property
-    def totalDowntilt(self)->float:
+    def totalDowntilt(self) -> float:
         return self.mDowntilt + self.eDowntilt
-    
+
     def asdict(self) -> Dict:
         return self.__dict__
-    
+
     def copy(self) -> TCellSector:
         copy = dc.replace(self)
         for key, value in self.asdict().items():
-            setattr(copy,key, value)
+            setattr(copy, key, value)
         return copy
 
-    
-    
+    def setFloorElevation(floorHeight: float) -> None:
+        floorHeight = floorHeight
+        return
+
+
 @dc.dataclass
 class CellSectorBuilder:
     name: str
@@ -83,64 +89,85 @@ class CellSectorBuilder:
     eDowntilt: float = dc.field(default=None, init=False, repr=False)
     hWidth: float = dc.field(default=None, init=False, repr=False)
     vWidth: float = dc.field(default=10, init=False, repr=False)
+    minEDowntilt: float = dc.field(default=0, init=False, repr=False)
+    maxEDowntilt: float = dc.field(default=10, init=False, repr=False)
 
-    def setAntennaHeigth(self, antennaHeight: float)->TCellSectorBuilder:
-        if antennaHeight <= 0:
+    def setAntennaHeigth(self, antennaHeight: float) -> TCellSectorBuilder:
+        if antennaHeight > 0:
+            self.antennaHeight = antennaHeight
+            return self
+        else:
             raise OutOfRangeError(
                 "Antenna Height Out of Range",
                 {
                     "antennaHeight": antennaHeight,
                 }
             )
-        else:
-            self.antennaHeight = antennaHeight
-        return self
-    
-    def setAzimuth(self, azimuth: float,shift: float=0) -> TCellSectorBuilder:
+
+    def setAzimuth(
+            self,
+            azimuth: float,
+            shift: float = 0) -> TCellSectorBuilder:
         self.azimuth = azimuth % 360
         self.shift = shift % 360
         return self
-    
+
     def setMDowntilt(self, mDowntilt: float) -> TCellSectorBuilder:
         self.mDowntilt = mDowntilt
         return self
-    
-    def setEDowntilt(self, eDowntilt: float) -> TCellSectorBuilder:
-        self.eDowntilt = eDowntilt     
-        return self
-    
+
+    def setEDowntilt(
+            self,
+            eDowntilt: float,
+            minRange: float = 0,
+            maxRange: float = 10
+            ) -> TCellSectorBuilder:
+        self.minEDowntilt = minRange
+        self.maxEDowntilt = maxRange
+        if self.minEDowntilt <= eDowntilt <= self.maxEDowntilt:
+            self.eDowntilt = eDowntilt
+            return self
+        else:
+            raise OutOfRangeError(
+                "Electrica tilt ot of Range",
+                {
+                    'minRange': minRange,
+                    'maxRange': maxRange,
+                    'value': eDowntilt,
+                }
+            )
+
     def setHWidth(self, hWidth: float) -> TCellSectorBuilder:
-        if hWidth <= 0:
+        if hWidth > 0:
+            self.hWidth = hWidth
+            return self
+        else:
             raise OutOfRangeError(
                 "Horizontal Beam Width Out of Range",
-                { "hWidth": hWidth}
+                {"hWidth": hWidth}
             )
-        else:
-            self.hWidth = hWidth % 360
-        return self
+
     def setVWidth(self, vWidth: float) -> TCellSectorBuilder:
-        if vWidth <= 0:
+        if vWidth > 0:
+            self.vWidth = vWidth
+            return self
+        else:
             raise OutOfRangeError(
                 "Vertical Beam Width Out of Range",
-                { "vWidth": vWidth}
+                {"vWidth": vWidth}
             )
-        else:
-            self.vWidth = vWidth % 360
-        return self
-    
+
     def asdict(self) -> Dict:
         return self.__dict__
-    
+
     def ready(self) -> bool:
-        if self.antennaHeight == None \
-            or self.azimuth == None   \
-            or self.eDowntilt == None \
-            or self.hWidth == None:
+        if self.antennaHeight is None or self.azimuth is None \
+           or self.eDowntilt is None or self.hWidth is None:
             return False
         else:
             return True
 
-    def mainlobe(self)-> CellSector:
+    def mainlobe(self) -> CellSector:
         if not self.ready():
             return None
         return CellSector(
@@ -152,9 +179,11 @@ class CellSectorBuilder:
             self.mDowntilt,
             self.eDowntilt,
             self.hWidth,
-            self.vWidth
+            self.vWidth,
+            self.minEDowntilt,
+            self.maxEDowntilt,
         )
-    
+
     def upperSidelobe(self) -> CellSector:
         if not self.ready():
             return None
@@ -164,8 +193,10 @@ class CellSectorBuilder:
             self.antennaHeight,
             self.azimuth,
             self.shift,
-            round(self.mDowntilt - self.vWidth/2.0,2),
+            round(self.mDowntilt - self.vWidth / 2.0, 2),
             self.eDowntilt,
             self.hWidth,
-            self.vWidth
+            self.vWidth,
+            self.minEDowntilt,
+            self.maxEDowntilt,
         )

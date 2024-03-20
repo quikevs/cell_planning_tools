@@ -65,12 +65,13 @@ from qgis.PyQt.QtCore import QVariant
 
 import os
 
-from .settings import settings
+from .settings import Settings
 from .utils import EPSG4326, GeometryManager, Geometry
 from .rf import CellSectorBuilder, CellSector
 from .utils import logMessage
 
 from typing import List, Dict, Any
+
 
 class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
     pNAME = "NAME"
@@ -87,25 +88,26 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
     pV_WIDTH = "V_WIDTH"
     pUS_LIMIT = "US_LIMIT"
     pDISTANCE_UNITS = "DISTANCE_UNITS"
+    settings = Settings()
 
     def createInstance(self) -> QgsProcessingFeatureBasedAlgorithm:
         return DrawSectors()
-    
+
     def icon(self) -> QIcon:
         return QIcon(
             os.path.join(
-                settings.plugin_directory, 
+                self.settings.plugin_directory,
                 "resources", "icons",
                 "draw_sectors.png"
             )
         )
-    
+
     def outputName(self) -> str:
         return "Cell-sector"
-    
+
     def inputLayerTypes(self) -> List[int]:
         return [QgsProcessing.TypeVectorPoint]
-    
+
     def outputWkbType(self, inputWkbType):
         return (QgsWkbTypes.Polygon)
 
@@ -114,43 +116,43 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
         InputFields.append(QgsField('units', QVariant.String))
         InputFields.append(QgsField('lobe', QVariant.String))
         return (InputFields)
-    
+
     def supportInPlaceEdit(self, Layer: QgsMapLayer) -> bool:
         return False
-    
+
     def name(self) -> str:
         return 'drawsector'
-    
+
     def displayName(self) -> str:
         return 'Draw Cell-sectors'
-    
+
     def groupId(self) -> str:
         return 'geometrycalculator'
-    
+
     def group(self) -> str:
         return 'Geometry Calculator'
-    
+
     def initParameters(self, configuration: Dict[str, Any] = ...) -> None:
-        
+
         # Cell Sector Name
         self.addParameter(
             QgsProcessingParameterField(
                 self.pNAME,
                 "Cell Sector name (Unique)",
-                defaultValue=settings.mapName,
+                defaultValue=self.settings.mapName,
                 allowMultiple=False,
                 parentLayerParameterName='INPUT',
                 optional=False,
             )
         )
-        
+
         # Elevation Layer List
         self.addParameter(
             QgsProcessingParameterMultipleLayers(
                 self.pDEM_LIST,
                 "Digital Elevation Model (DEM) raster list",
                 layerType=QgsProcessing.TypeRaster,
-                defaultValue=settings.rasterList(settings.demList),
+                defaultValue=self.settings.demList,
                 optional=False,
             )
         )
@@ -161,7 +163,7 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
                 self.pDSM_LIST,
                 "Digital Surface Model (DSM) raster list (optional)",
                 layerType=QgsProcessing.TypeRaster,
-                defaultValue=settings.rasterList(settings.dsmList),
+                defaultValue=self.settings.dsmList,
                 optional=True,
             )
         )
@@ -171,7 +173,7 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
                 self.pSENSIBILITY,
                 "DEM/DSM Sensibility (in map units)",
                 type=QgsProcessingParameterNumber.Double,
-                defaultValue=settings.sensibility,
+                defaultValue=self.settings.sensibility,
                 optional=False,
                 minValue=0.1,
             )
@@ -183,20 +185,20 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
             QgsProcessingParameterField(
                 self.pAZIMUTH,
                 "Azimuth",
-                defaultValue=settings.mapAzimuth,
+                defaultValue=self.settings.mapAzimuth,
                 parentLayerParameterName='INPUT',
                 type=QgsProcessingParameterField.Numeric,
                 allowMultiple=False,
                 optional=False
                 )
             )
-        
+
         # Note: Azimuth Shift
         param = QgsProcessingParameterNumber(
             self.pSHIFT,
             'Azimuth Shift',
             QgsProcessingParameterNumber.Double,
-            defaultValue=settings.mapShift,
+            defaultValue=None,
             optional=False
         )
         param.setIsDynamic(True)
@@ -214,31 +216,31 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
             QgsProcessingParameterField(
                 self.pANTENNA_HEIGHT,
                 "Antenna Height",
-                defaultValue=settings.mapAntennaHeight,
+                defaultValue=self.settings.mapAntennaHeight,
                 parentLayerParameterName='INPUT',
                 type=QgsProcessingParameterField.Numeric,
                 allowMultiple=False,
                 optional=False
             )
         )
-        
+
         self.addParameter(
             QgsProcessingParameterField(
                 self.pM_DOWNTILT,
                 'Mechanical Downtilt',
-                defaultValue=settings.mapMTilt,
+                defaultValue=self.settings.mapMTilt,
                 parentLayerParameterName='INPUT',
                 type=QgsProcessingParameterField.Numeric,
                 allowMultiple=False,
                 optional=False
             )
         )
-        
+
         self.addParameter(
             QgsProcessingParameterField(
                 self.pE_DOWNTILT,
                 'Electrical Downtilt',
-                defaultValue=settings.mapETilt,
+                defaultValue=self.settings.mapETilt,
                 parentLayerParameterName='INPUT',
                 type=QgsProcessingParameterField.Numeric,
                 allowMultiple=False,
@@ -250,7 +252,7 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
             QgsProcessingParameterField(
                 self.pH_WIDTH,
                 'Horizontal Beam Width',
-                defaultValue=settings.mapHWidth,
+                defaultValue=self.settings.mapHWidth,
                 parentLayerParameterName='INPUT',
                 type=QgsProcessingParameterField.Numeric,
                 allowMultiple=False,
@@ -262,42 +264,41 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
             QgsProcessingParameterField(
                 self.pV_WIDTH,
                 'Vertical Beam Width',
-                defaultValue=settings.mapHWidth,
+                defaultValue=self.settings.mapHWidth,
                 parentLayerParameterName='INPUT',
                 type=QgsProcessingParameterField.Numeric,
                 allowMultiple=False,
                 optional=False
             )
         )
-        
+
         # Upper sidelobe distance limit
         self.addParameter(
             QgsProcessingParameterNumber(
                 self.pUS_LIMIT,
                 "Upper sidelobe distance limit",
                 QgsProcessingParameterNumber.Double,
-                defaultValue=settings.upperSidelobeLimit,
-                optional = False
+                defaultValue=self.settings.upperSidelobeLimit,
+                optional=False
             )
         )
-        
+
         # Node: Resulting Distance Units
         self.addParameter(
             QgsProcessingParameterEnum(
                 self.pUNITS,
                 'Map units',
-                options= ["Meters", "Feet"],
-                defaultValue=settings.units,
+                options=["Meters", "Feet"],
+                defaultValue=self.settings.units,
                 optional=False)
         )
         return
-    
-    def prepareAlgorithm(self, 
-                         parameters: Dict[str, Any], 
-                         context: QgsProcessingContext, 
+
+    def prepareAlgorithm(self,
+                         parameters: Dict[str, Any],
+                         context: QgsProcessingContext,
                          feedback: QgsProcessingFeedback) -> bool:
-        
-        source:QgsProcessingFeatureSource = \
+        source: QgsProcessingFeatureSource = \
               self.parameterAsSource(
                   parameters, 'INPUT', context
                   )
@@ -317,14 +318,14 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
 
         DEMList: List[QgsMapLayer] = \
             self.parameterAsLayerList(
-                parameters, 
+                parameters,
                 self.pDEM_LIST,
                 context
                 )
-              
+
         DSMList: List[QgsMapLayer] = \
             self.parameterAsLayerList(
-                parameters, 
+                parameters,
                 self.pDEM_LIST,
                 context
                 )
@@ -342,7 +343,7 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
             parameters, self.pH_WIDTH, context)[0]
         self.vWidth = self.parameterAsStrings(
             parameters, self.pV_WIDTH, context)[0]
-        
+
         # Azimuth Shift
         self.shift = self.parameterAsDouble(
             parameters, self.pSHIFT, context
@@ -362,24 +363,24 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
                 QgsUnitTypes.DistanceFeet,
                 QgsUnitTypes.DistanceMeters
                 )
-        
+
         sensibility = self.parameterAsDouble(
-            parameters, self.pSENSIBILITY,context)
-        
+            parameters, self.pSENSIBILITY, context)
+
         sensibility = sensibility * self.scaleFactor
         # Upper sidelobe distance limit
-            
+
         upperSidelobeLimit = self.parameterAsDouble(
             parameters, self.pUS_LIMIT, context
             )
-        
+
         self.manager: GeometryManager = GeometryManager(EPSG4326)
         self.manager.setElevationRasterList(DEMList)
         self.manager.setSurfaceRasterList(DSMList)
-        
+
         self.manager.setSensibility(sensibility)
         self.manager.setUpperSidelobeLimit(upperSidelobeLimit)
-        
+
         if self.manager.isReady():
             feedback.pushInfo("Executing Algorithm sector by sector")
             return True
@@ -387,9 +388,9 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
             feedback.reportError("Initialization Error")
             return False
 
-    def processFeature(self, 
-                       feature: QgsFeature, 
-                       context: QgsProcessingContext, 
+    def processFeature(self,
+                       feature: QgsFeature,
+                       context: QgsProcessingContext,
                        feedback: QgsProcessingFeedback) -> List[QgsFeature]:
         features: List[QgsFeature] = []
         origin: QgsPointXY = feature.geometry().asPoint()
@@ -397,25 +398,25 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
         if self.transform:
             origin = self.transform.transform(
                 origin, direction=Qgis.TransformDirection.Forward)
-        
-        #Extract Dynamic Parameters
-        
+
+        # Extract Dynamic Parameters
+
         name = str(feature[self.name])
         azimuth = float(feature[self.azimuth])
-        if azimuth == None:
+        if azimuth is None:
             feedback.pushDebugInfo(
                 f"Azimuth.illegal error. Name:{name}"
                 )
             return []
         azimuth %= 360
-        
-        #Shift
+
+        # Shift
         if self.shiftIsDynamic:
             shift, success = self.shiftProperty.valueAsDouble(
                 context.expressionContext(), self.shift
                 )
             if not success:
-                #Asume Zero
+                # Asume Zero
                 shift = 0
         else:
             shift = self.shift
@@ -423,92 +424,90 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
         shift %= 360
 
         antennaHeight = float(feature[self.antennaHeight])
-        if antennaHeight <= 0 or antennaHeight == None:
+        if antennaHeight <= 0 or antennaHeight is None:
             feedback.pushDebugInfo(
                 f"AntennaHeight.illegal error. Name:{name}"
                 )
             return []
-        
+
         antennaHeight = antennaHeight * self.scaleFactor
 
-        #M Downtilt
+        # M Downtilt
         mDowntilt = float(feature[self.mDowntilt])
-        if mDowntilt == None:
-                feedback.pushDebugInfo(
-                    f"MDowntiltProperty read error. Name:{name}"
-                    )
-                return []
+        if mDowntilt is None:
+            feedback.pushDebugInfo(
+                f"MDowntiltProperty read error. Name:{name}"
+                )
+            return []
 
-        logMessage(f'{mDowntilt}')
         eDowntilt = float(feature[self.eDowntilt])
-        if eDowntilt == None:
-                feedback.pushDebugInfo(
-                    f"EDowntiltProperty read error. Name:{name}"
-                    )
-                return []
+        if eDowntilt is None:
+            feedback.pushDebugInfo(
+                f"EDowntiltProperty read error. Name:{name}"
+                )
+            return []
 
-        logMessage(f'{eDowntilt}')
-        #H Width
+        # H Width
         hWidth = float(feature[self.hWidth])
-        if hWidth == None:
+        if hWidth is None:
             feedback.pushDebugInfo(
                 f"HWidthProperty read error. Name:{name}"
                 )
             return []
-        if hWidth <=0:
+        if hWidth <= 0:
             feedback.pushDebugInfo(
                 f"HWidth.illegal error. Name:{name}"
                 )
             return []
-        
+
         vWidth = float(feature[self.vWidth])
-        if vWidth == None:
+        if vWidth is None:
             feedback.pushDebugInfo(
                 f"VWidthProperty read error. Name:{name}"
                 )
             return []
-        if vWidth <=0:
+
+        if vWidth <= 0:
             feedback.pushDebugInfo(
                 f"VWidth.illegal error. Name:{name}"
                 )
             return []
 
-        builder: CellSectorBuilder = (CellSectorBuilder(name, origin)
-                   .setAntennaHeigth(antennaHeight)
-                   .setAzimuth(azimuth, shift)
-                   .setMDowntilt(mDowntilt)
-                   .setEDowntilt(eDowntilt)
-                   .setHWidth(hWidth)
-                   .setVWidth(vWidth)
-                   )
-        
+        builder: CellSectorBuilder = \
+            (CellSectorBuilder(name, origin)
+             .setAntennaHeigth(antennaHeight)
+             .setAzimuth(azimuth, shift)
+             .setMDowntilt(mDowntilt)
+             .setEDowntilt(eDowntilt)
+             .setHWidth(hWidth)
+             .setVWidth(vWidth))
+
         mainLobe: CellSector = builder.mainlobe()
         if not mainLobe:
             feedback.pushDebugInfo(f"Mainlobe not Ready!. Name:{name}")
             return []
-        
-        logMessage(f'processing-> name {name}')
+
         mainLobeGeometry: Geometry = \
             self.manager.computeGeometry(mainLobe.copy())
-        
+
         upperSidelobe: CellSector = builder.upperSidelobe()
         if not upperSidelobe:
             feedback.pushDebugInfo(f"Upper Sidelobe not Ready!. Name:{name}")
             return []
-        
+
         upperSidelobeGeometry: Geometry =\
             self.manager.computeGeometry(upperSidelobe.copy())
-        
+
         if not mainLobeGeometry or not upperSidelobeGeometry:
             feedback.pushDebugInfo(f"Null Geometry. Name:{name}")
             return []
-        
+
         f = QgsFeature(feature)
         attributes = f.attributes()
         f.setAttributes(
             attributes + [
-                mainLobeGeometry.distance, 
-                "Meters" if self.units == 0 else "Feet", 
+                mainLobeGeometry.distance,
+                "Meters" if self.units == 0 else "Feet",
                 "Mainlobe"
                 ]
         )
@@ -525,8 +524,8 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
         attributes = f.attributes()
         f.setAttributes(
             attributes + [
-                upperSidelobeGeometry.distance, 
-                "Meters" if self.units == 0 else "Feet", 
+                upperSidelobeGeometry.distance,
+                "Meters" if self.units == 0 else "Feet",
                 "Upper Sidelobe"
                 ]
             )
@@ -537,19 +536,19 @@ class DrawSectors(QgsProcessingFeatureBasedAlgorithm):
                 if self.transform else upperSidelobeGeometry.geometry
             )
         )
-        features.append(f)   
-        
+        features.append(f)
+
         return features
-    
-    def postProcessAlgorithm(self, 
-                             context: QgsProcessingContext, 
+
+    def postProcessAlgorithm(self,
+                             context: QgsProcessingContext,
                              feedback: QgsProcessingFeedback) -> dict:
         layer = context.getMapLayer(self.outputName())
         layer.loadNamedStyle(
             os.path.join(
-                settings.plugin_directory,
-                "resources","styles",
+                self.settings.plugin_directory,
+                "resources", "styles",
                 "cell_sector.qml"
             )
         )
-        return {} 
+        return {}

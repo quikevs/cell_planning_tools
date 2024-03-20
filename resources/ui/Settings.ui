@@ -221,7 +221,7 @@
          <item row="0" column="0">
           <widget class="QLabel" name="label_8">
            <property name="text">
-            <string>Color</string>
+            <string>Mainlobe</string>
            </property>
           </widget>
          </item>
@@ -237,6 +237,26 @@
          </item>
          <item row="1" column="1">
           <widget class="QgsOpacityWidget" name="opacityWidget"/>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_2">
+           <property name="text">
+            <string>Upper Sidelobe</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QgsColorButton" name="secondColorButton"/>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_3">
+           <property name="text">
+            <string>TextLabel</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QgsOpacityWidget" name="secondOpacityWidget"/>
          </item>
         </layout>
        </item>
@@ -264,6 +284,13 @@
        <property name="enabled">
         <bool>false</bool>
        </property>
+       <property name="text">
+        <string notr="true"/>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="status">
        <property name="text">
         <string notr="true"/>
        </property>
@@ -310,8 +337,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>227</x>
-     <y>510</y>
+     <x>254</x>
+     <y>355</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -326,8 +353,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>295</x>
-     <y>516</y>
+     <x>322</x>
+     <y>355</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>

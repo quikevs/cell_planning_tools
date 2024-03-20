@@ -33,6 +33,7 @@ __author__ = 'Enrique Velazquez'
 __date__ = '2023-04-21'
 __copyright__ = '(C) 2023 by Rockmedia'
 
+
 class NotInitialized(AttributeError):
     def __init__(self, message, errors) -> None:
         super().__init__(message)

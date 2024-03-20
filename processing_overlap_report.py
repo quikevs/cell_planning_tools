@@ -57,7 +57,8 @@ from qgis.core import (
     QgsUnitTypes,
 )
 
-from .settings import settings
+from .settings import Settings
+
 
 class OverlapReport(QgsProcessingAlgorithm):
     pCELL_SECTORS = "CELL_SECTORS"
@@ -67,36 +68,41 @@ class OverlapReport(QgsProcessingAlgorithm):
     pCELL_SECTOR_NAME = "CELL_SECTOR_NAME"
     pCELL_SECTOR_LOBE = "CELL_SECTOR_LOBE"
     pPOLYGON_NAME = "POLYGON_NAME"
+    settings = Settings()
+
     def createInstance(self) -> QgsProcessingAlgorithm:
         return OverlapReport()
+
     def shortHelpString(self) -> str:
         return """
         <h1> Overlap Report </h1>
         TODO
         """
+
     def groupId(self) -> str:
         return 'geometrycalculator'
-    
+
     def group(self) -> str:
         return 'Geometry Calculator'
-    
+
     def name(self) -> str:
         return 'overlap_report'
-    
+
     def displayName(self) -> str:
         return 'Overlap Report'
-    
+
     def icon(self) -> QIcon:
         return QIcon(
             os.path.join(
-                settings.plugin_directory,
+                self.settings.plugin_directory,
                 "resources", "icons",
                 "overlap_report.png"
             )
         )
+
     def initAlgorithm(self,
                       configuration: Dict[str, Any]) -> None:
-        
+
         self.addParameter(
             QgsProcessingParameterFeatureSource(
                 self.pCELL_SECTORS,
@@ -127,6 +133,7 @@ class OverlapReport(QgsProcessingAlgorithm):
                 optional=False
             )
         )
+
         self.addParameter(
             QgsProcessingParameterField(
                 self.pPOLYGON_NAME,
@@ -137,12 +144,12 @@ class OverlapReport(QgsProcessingAlgorithm):
                 optional=False
             )
         )
-        
+
         self.addParameter(
             QgsProcessingParameterEnum(
                 self.pUNITS,
                 'Map units',
-                options= ["Kilometers", "Miles"],
+                options=["Kilometers", "Miles"],
                 defaultValue=0,
                 optional=False)
         )
@@ -158,71 +165,68 @@ class OverlapReport(QgsProcessingAlgorithm):
             )
         )
         return
-    
+
     def processAlgorithm(self,
                          parameters: Dict[str, Any],
                          context: QgsProcessingContext,
                          feedback: QgsProcessingFeedback) -> Dict[str, Any]:
-        
         path = self.parameterAsFileOutput(
             parameters, self.pREPORT, context)
+
         name = self.parameterAsFields(
             parameters, self.pCELL_SECTOR_NAME, context)
+
         polygons = self.parameterAsSource(
             parameters, self.pPOLYGONS, context)
+
         polygonNames = self.parameterAsFields(
             parameters, self.pPOLYGON_NAME, context)
+
         self.units = self.parameterAsInt(
-            parameters, self.pUNITS, context
-            )
-        
-        # TODO: Review
+            parameters, self.pUNITS, context)
+
         self.toSquareKilometers = QgsUnitTypes.fromUnitToUnitFactor(
                 QgsUnitTypes.AreaSquareMeters,
                 QgsUnitTypes.AreaSquareKilometers
                 )
-        
+
         self.areaScaleFactor = 1 if self.units == 0 else \
             QgsUnitTypes.fromUnitToUnitFactor(
                 QgsUnitTypes.AreaSquareKilometers,
                 QgsUnitTypes.AreaSquareMiles
             )
-        
+
         sectors = self.parameterAsSource(
             parameters, self.pCELL_SECTORS, context)
-        
+
         if polygons is None:
             raise QgsProcessingException(
-                self.invalidSourceError(parameters, self.pPOLYGONS)
-            )
+                self.invalidSourceError(parameters, self.pPOLYGONS))
+
         if sectors is None:
             raise QgsProcessingException(
-                self.invalidSourceError(parameters, self.pCELL_SECTORS)
-            )
-               
+                self.invalidSourceError(parameters, self.pCELL_SECTORS))
+
         if len(name) == 0:
             raise QgsProcessingException(
-                self.invalidSourceError(parameters, self.pCELL_SECTOR_NAME)
-            )
+                self.invalidSourceError(parameters, self.pCELL_SECTOR_NAME))
+
         lobe: str = "lobe"
         name: str = name[0]
-        
+
         distArea = QgsDistanceArea()
         distArea.setEllipsoid('WGS84')
 
         mainlobes_request = \
             QgsFeatureRequest().setFilterExpression(
                 QgsExpression().createFieldEqualityExpression(
-                    lobe, "Mainlobe"
-                )
-            )
+                    lobe, "Mainlobe"))
+
         upper_sidelobes_request = \
             QgsFeatureRequest().setFilterExpression(
                 QgsExpression().createFieldEqualityExpression(
-                    lobe, "Upper Sidelobe"
-                )
-            )
-        
+                    lobe, "Upper Sidelobe"))
+
         mainlobeList: List[QgsFeature] = []
         mainLobes: QgsFeatureIterator = sectors.getFeatures(mainlobes_request)
         mainlobeList.append(next(mainLobes))
@@ -231,9 +235,9 @@ class OverlapReport(QgsProcessingAlgorithm):
         for feature in mainLobes:
             if feedback.isCanceled():
                 return {}
-            mainlobeCombined =mainlobeCombined.combine(feature.geometry())
+            mainlobeCombined = mainlobeCombined.combine(feature.geometry())
             mainlobeList.append(feature)
-        
+
         upperSidelobeList: List[QgsFeature] = []
         upperSidelobes: QgsFeatureIterator = \
             sectors.getFeatures(upper_sidelobes_request)
@@ -246,7 +250,7 @@ class OverlapReport(QgsProcessingAlgorithm):
             upperSidelobeCombined = \
                 upperSidelobeCombined.combine(feature.geometry())
             upperSidelobeList.append(feature)
-        
+
         polygonName: str = None
         if self.units == 0:
             units = 'km^2'
@@ -261,7 +265,7 @@ class OverlapReport(QgsProcessingAlgorithm):
                     polygonName = polygon.id()
                 else:
                     polygonName = polygonNames[0]
-                
+
                 polygonArea = \
                     distArea.measureArea(polygon.geometry()) * \
                     self.toSquareKilometers * \
@@ -269,7 +273,7 @@ class OverlapReport(QgsProcessingAlgorithm):
 
                 file.write(f'Polygon: {polygonName}\n')
                 feedback.pushInfo(f'Polygon: {polygonName}')
-                
+
                 file.write(f'Area: {polygonArea} {units}\n')
                 feedback.pushInfo(f'Area: {polygonArea} {units}')
 
@@ -281,21 +285,27 @@ class OverlapReport(QgsProcessingAlgorithm):
                     polygon.geometry().intersection(upperSidelobeCombined)) *\
                     self.toSquareKilometers *\
                     self.areaScaleFactor
-                
-                file.write(
-                    f'Mainlobes coverage: {mainlobeCoverage} {units} <=> {round(100.0*mainlobeCoverage / polygonArea,2)} %\n')
-                feedback.pushInfo(
-                    f'Mainlobes coverage: {mainlobeCoverage} {units} <=> {round(100.0*mainlobeCoverage / polygonArea,2)} %')
 
                 file.write(
-                    f'Mainlobes coverage: {upperSidelobeCoverage} {units} <=> {round(100*upperSidelobeCoverage / polygonArea,2)} %\n')
+                    f'Mainlobes coverage: {mainlobeCoverage} {units} ' +
+                    f'<=> {round(100.0*mainlobeCoverage / polygonArea,2)} %\n')
                 feedback.pushInfo(
-                    f'Mainlobes coverage: {upperSidelobeCoverage} {units} <=> {round(100*upperSidelobeCoverage / polygonArea,2)} %')
-                
+                    f'Mainlobes coverage: {mainlobeCoverage} {units} ' +
+                    f'<=> {round(100.0*mainlobeCoverage / polygonArea,2)} %')
+
+                file.write(
+                    f'Mainlobes coverage: {upperSidelobeCoverage} {units} ' +
+                    f'<=> {round(100*upperSidelobeCoverage / polygonArea,2)}' +
+                    f' %\n')
+                feedback.pushInfo(
+                    f'Mainlobes coverage: {upperSidelobeCoverage} {units} ' +
+                    f'<=> {round(100*upperSidelobeCoverage / polygonArea,2)}' +
+                    f' %')
+
                 statusIndex = 0
                 total = len(mainlobeList) + len(upperSidelobeList)
-                mainlobeIntersections: dict[str,float]= {}
-                upperSidelobeIntersections: dict[str,float]= {}
+                mainlobeIntersections: dict[str, float] = {}
+                upperSidelobeIntersections: dict[str, float] = {}
 
                 for i, sector in enumerate(mainlobeList):
                     if feedback.isCanceled():
@@ -308,9 +318,9 @@ class OverlapReport(QgsProcessingAlgorithm):
                                 mainlobeIntersections[overlapName] = \
                                     distArea.measureArea(
                                         sector.geometry().intersection(
-                                            shifted.geometry()))*\
-                                        self.toSquareKilometers*\
-                                        self.areaScaleFactor
+                                            shifted.geometry())) * \
+                                    self.toSquareKilometers * \
+                                    self.areaScaleFactor
                     feedback.setProgress(int(statusIndex*100 / total))
 
                 for i, sector in enumerate(upperSidelobeList):
@@ -324,54 +334,57 @@ class OverlapReport(QgsProcessingAlgorithm):
                                 upperSidelobeIntersections[overlapName] = \
                                     distArea.measureArea(
                                         sector.geometry().intersection(
-                                            shifted.geometry()))*\
-                                        self.toSquareKilometers*\
-                                        self.areaScaleFactor
+                                            shifted.geometry())) * \
+                                    self.toSquareKilometers * \
+                                    self.areaScaleFactor
                     feedback.setProgress(int(statusIndex*100 / total))
 
                 mainlobeTotalInterference = \
                     sum(mainlobeIntersections.values())
                 upperSidelobeTotalInterference = \
-                    sum(upperSidelobeIntersections.values())       
-                
+                    sum(upperSidelobeIntersections.values())
+
                 file.write(
-                    f"Total Mainlobes overlap: {round(mainlobeTotalInterference,2)} {units}\n\n")
+                    f"Total Mainlobes overlap: " +
+                    f"{round(mainlobeTotalInterference,2)} {units}\n\n")
                 feedback.pushInfo(
-                    f"Total Mainlobes overlap: {round(mainlobeTotalInterference,2)} {units}"
+                    f"Total Mainlobes overlap: " +
+                    f"{round(mainlobeTotalInterference,2)} {units}"
                 )
                 sortedMainlobeTotalInterference = \
                     dict(
                         sorted(
-                            mainlobeIntersections.items(), 
-                            key=lambda x:x[1], 
+                            mainlobeIntersections.items(),
+                            key=lambda x: x[1],
                             reverse=True
                             )
                         )
-                
+
                 file.write("Sector\tOverlap\n")
                 for key, value in sortedMainlobeTotalInterference.items():
-                    if round(value,2):
+                    if round(value, 2):
                         file.write(f'{key}:\t{round(value,2)} {units}\n')
-                
+
                 file.write(
-                    f"\nUper Sidelobe Overlap: {round(upperSidelobeTotalInterference)} {units} \n\n")
+                    f"\nUper Sidelobe Overlap: " +
+                    f"{round(upperSidelobeTotalInterference)} {units} \n\n")
                 feedback.pushInfo(
-                    f"\nUper Sidelobe Overlap: {round(upperSidelobeTotalInterference)} {units}"
+                    f"\nUper Sidelobe Overlap: " +
+                    f"{round(upperSidelobeTotalInterference)} {units}"
                 )
-                
+
                 sortedUpperSidelobeTotalInterference = \
                     dict(
                         sorted(
-                            upperSidelobeIntersections.items(), 
-                            key=lambda x:x[1], 
+                            upperSidelobeIntersections.items(),
+                            key=lambda x: x[1],
                             reverse=True
                             )
                         )
-                
+
                 file.write("Sector\tOverlap\n")
                 for key, value in sortedUpperSidelobeTotalInterference.items():
-                    if round(value,2):
+                    if round(value, 2):
                         file.write(f'{key}:\t{round(value,2)} {units}\n')
-            
-            return { 'OUTPUT': file}
-        
+
+            return {'OUTPUT': file}

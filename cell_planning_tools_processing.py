@@ -39,15 +39,18 @@ from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import QgsProcessingProvider
 
-from .settings import settings
+from .settings import Settings
 from .processing_draw_sectors import DrawSectors
 from .processing_overlap_report import OverlapReport
 
+
 class CallPlanningToolsProcessing(QgsProcessingProvider):
+    settings = Settings()
+    
     def __init__(self) -> None:
         QgsProcessingProvider.__init__(self)
         return
-    
+
     def loadAlgorithms(self) -> None:
         self.addAlgorithm(DrawSectors())
         self.addAlgorithm(OverlapReport())
@@ -56,21 +59,20 @@ class CallPlanningToolsProcessing(QgsProcessingProvider):
     def unload(self) -> None:
         QgsProcessingProvider.unload(self)
         return
-    
+
     def id(self) -> str:
         return "cellplanningtools"
-    
+
     def name(Self) -> str:
         return "Cell Planning Tools"
-    
+
     def longName(self) -> str:
         return self.name()
-    
+
     def icon(self) -> QIcon:
         return QIcon(
             os.path.join(
-                settings.plugin_directory,
-                "resources","icons","cellplanningtools.png"
+                self.settings.plugin_directory,
+                "resources", "icons", "cellplanningtools.png"
             )
         )
-
