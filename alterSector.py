@@ -210,6 +210,7 @@ class uiAlterSector(object):
         self.tbShowLateralView.setIcon(icon)
         self.tbShowLateralView.setObjectName("tbShowLateralView")
         self.tbShowLateralView.setEnabled(False)
+        self.tbShowLateralView.setToolTip("Show Elevation Profile")
         self.hlSectorSelector.addWidget(self.tbShowLateralView)
 
         self.vlDockWidget.addLayout(self.hlSectorSelector)
@@ -276,6 +277,7 @@ class uiAlterSector(object):
                 QIcon.Normal, QIcon.Off)
         self.tbEdit.setIcon(icon2)
         self.tbEdit.setObjectName("tbEdit")
+        self.tbEdit.setToolTip("Show edit form")
         self.vlEdit.addWidget(self.tbEdit)
         self.tbSettings: QToolButton = QToolButton(self.dock)
         self.tbSettings.setText('s')
@@ -285,6 +287,7 @@ class uiAlterSector(object):
             QIcon.Normal, QIcon.Off)
         self.tbSettings.setIcon(icon)
         self.tbSettings.setObjectName("tbSettings")
+        self.tbSettings.setToolTip("Settings")
         self.vlEdit.addWidget(self.tbSettings)
         spacerItem: QSpacerItem = QSpacerItem(
             20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
@@ -311,18 +314,21 @@ class uiAlterSector(object):
                 QIcon.Normal, QIcon.Off)
         self.tbLOS.setIcon(icon3)
         self.tbLOS.setObjectName("tbFreeHand")
+        self.tbLOS.setToolTip("Compute Line of Sight")
         self.hlGeometry.addWidget(self.tbLOS)
 
         self.pbRestore: QPushButton = QPushButton(self.dock)
         self.pbRestore.setEnabled(False)
         self.pbRestore.setText("Restore")
         self.pbRestore.setObjectName("pbRestore")
+        self.pbRestore.setToolTip("Restore to Initial Configuration")
         self.hlGeometry.addWidget(self.pbRestore)
 
         self.pbClear: QPushButton = QPushButton(self.dock)
         self.pbClear.setEnabled(False)
         self.pbClear.setText("Clear")
         self.pbClear.setObjectName("pbClear")
+        self.pbClear.setToolTip("Commit changes and Clear Selection")
         self.hlGeometry.addWidget(self.pbClear)
         spacerItem1 = QSpacerItem(
             40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
@@ -395,6 +401,7 @@ class uiAlterSector(object):
         self.tbUp.setIcon(icon4)
         self.tbUp.setObjectName("tbUp")
         self.tbUp.setEnabled(False)
+        self.tbUp.setToolTip("Increase height")
         self.hlUpControls.addWidget(self.tbUp)
         self.vlHeightControls.addLayout(self.hlUpControls)
 
@@ -416,6 +423,7 @@ class uiAlterSector(object):
         self.tbDown.setIcon(icon5)
         self.tbDown.setObjectName("tbDown")
         self.tbDown.setEnabled(False)
+        self.tbDown.setToolTip("Decrease height")
         self.hlDownControls.addWidget(self.tbDown)
         self.vlHeightControls.addLayout(self.hlDownControls)
 
@@ -440,6 +448,7 @@ class uiAlterSector(object):
         self.tbCCW.setIcon(icon6)
         self.tbCCW.setObjectName("tbCCW")
         self.tbCCW.setEnabled(False)
+        self.tbCCW.setToolTip("Rotate Counterclockwise")
         self.hlAzimuthControl.addWidget(self.tbCCW)
 
         self.valueAzimuth: QLabel = QLabel(self.dock)
@@ -458,6 +467,7 @@ class uiAlterSector(object):
         self.tbCW.setIcon(icon7)
         self.tbCW.setObjectName("tbCW")
         self.tbCW.setEnabled(False)
+        self.tbCW.setToolTip("Rotate Clockwise")
         self.hlAzimuthControl.addWidget(self.tbCW)
         self.vlAzimuthTiltControls.addLayout(self.hlAzimuthControl)
 
@@ -474,6 +484,7 @@ class uiAlterSector(object):
         self.tbUpTilt.setIcon(icon8)
         self.tbUpTilt.setObjectName("tbUpTilt")
         self.tbUpTilt.setEnabled(False)
+        self.tbUpTilt.setToolTip("Decrease Downtilt")
         self.hlTiltControl.addWidget(self.tbUpTilt)
 
         self.valueDowntilt: QLabel = QLabel(self.dock)
@@ -492,6 +503,7 @@ class uiAlterSector(object):
 
         self.tbDownTilt.setIcon(icon9)
         self.tbDownTilt.setObjectName("tbDownTilt")
+        self.tbDownTilt.setToolTip("Increase Downtilt")
         self.hlTiltControl.addWidget(self.tbDownTilt)
         self.vlAzimuthTiltControls.addLayout(self.hlTiltControl)
         self.lbDonwtilt: QLabel = QLabel(self.dock)

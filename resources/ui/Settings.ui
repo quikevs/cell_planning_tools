@@ -108,7 +108,7 @@
          <item>
           <widget class="QToolButton" name="tbDem">
            <property name="toolTip">
-            <string notr="true">Select Raster Layers</string>
+            <string notr="true">Select DEM Raster Layers</string>
            </property>
            <property name="text">
             <string>...</string>
@@ -139,7 +139,7 @@
          <item>
           <widget class="QToolButton" name="tbDsm">
            <property name="toolTip">
-            <string notr="true">Select Raster Layers</string>
+            <string notr="true">Select DSM Raster Layers</string>
            </property>
            <property name="text">
             <string>...</string>
